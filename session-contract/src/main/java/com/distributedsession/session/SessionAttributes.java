@@ -5,7 +5,6 @@ package com.distributedsession.session;
 public final class SessionAttributes {
 
     public static final String USERNAME = "username";
-    public static final String CART = "cart";
 
     private SessionAttributes() {
     }
