@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,6 +45,22 @@ public class AuthController {
         HttpSession session = httpRequest.getSession(true);
         session.setAttribute(SessionAttributes.USERNAME, request.username());
         return ResponseEntity.ok().build();
+    }
+
+    // Lets a browser frontend recover who it is logged in as after a page reload, since the
+    // SESSION cookie is HttpOnly and the username only ever lives in the Session (ticket 7).
+    // Reports the same generic 401 as cart-service for a missing, unknown or half-built
+    // session: no detail about which it was.
+    @GetMapping("/session")
+    public ResponseEntity<?> currentSession(HttpServletRequest httpRequest) {
+        HttpSession session = httpRequest.getSession(false);
+        String username = session == null
+                ? null
+                : (String) session.getAttribute(SessionAttributes.USERNAME);
+        if (username == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse("Unauthorized"));
+        }
+        return ResponseEntity.ok(new SessionResponse(username));
     }
 
     @PostMapping("/logout")

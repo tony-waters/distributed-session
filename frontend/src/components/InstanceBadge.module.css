@@ -1,0 +1,13 @@
+.badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.unknown {
+  color: var(--muted);
+}

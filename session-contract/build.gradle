@@ -2,6 +2,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-autoconfigure'
     implementation 'org.springframework.session:spring-session-data-redis'
     implementation 'tools.jackson.core:jackson-databind'
+    // InstanceIdFilter needs the servlet API and FilterRegistrationBean. compileOnly: both
+    // consuming services already bring spring-boot-starter-web at runtime, and this module
+    // stays a plain library that doesn't drag a web server onto anyone's classpath.
+    compileOnly 'org.springframework.boot:spring-boot-starter-web'
 }
 
 tasks.named('bootJar') {

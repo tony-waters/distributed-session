@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.distributedsession.session.ErrorResponse;
 import com.distributedsession.loginservice.auth.LoginRequest;
+import com.distributedsession.loginservice.auth.SessionResponse;
+import com.distributedsession.session.InstanceIdFilter;
 import com.distributedsession.session.SessionAttributes;
 import java.util.Base64;
 import org.junit.jupiter.api.Test;
@@ -27,7 +29,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "INSTANCE_ID=login-test")
 @AutoConfigureTestRestTemplate
 @Testcontainers
 class LoginServiceApplicationTests {
@@ -116,6 +119,39 @@ class LoginServiceApplicationTests {
 
         assertThat(logoutResponse.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(sessionRepository.findById(sessionId)).isNull();
+    }
+
+    @Test
+    void currentSessionReportsTheLoggedInUsername() {
+        ResponseEntity<Void> loginResponse = restTemplate.postForEntity(
+                "/login", new LoginRequest("alice", "alice-password123"), Void.class);
+        String setCookie = loginResponse.getHeaders().getFirst(HttpHeaders.SET_COOKIE);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(HttpHeaders.COOKIE, setCookie.split(";")[0]);
+        ResponseEntity<SessionResponse> response = restTemplate.exchange(
+                "/session", HttpMethod.GET, new HttpEntity<>(headers), SessionResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isEqualTo(new SessionResponse("alice"));
+    }
+
+    @Test
+    void currentSessionWithoutASessionIsRejected() {
+        ResponseEntity<ErrorResponse> response = restTemplate.getForEntity("/session", ErrorResponse.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(response.getBody()).isEqualTo(new ErrorResponse("Unauthorized"));
+    }
+
+    @Test
+    void everyResponseIsLabelledWithTheInstanceThatAnsweredIt() {
+        ResponseEntity<ErrorResponse> unauthorized = restTemplate.getForEntity("/session", ErrorResponse.class);
+        ResponseEntity<Void> ok = restTemplate.postForEntity(
+                "/login", new LoginRequest("alice", "alice-password123"), Void.class);
+
+        assertThat(unauthorized.getHeaders().getFirst(InstanceIdFilter.HEADER)).isEqualTo("login-test");
+        assertThat(ok.getHeaders().getFirst(InstanceIdFilter.HEADER)).isEqualTo("login-test");
     }
 
     private static String decodeSessionId(String setCookieHeader) {

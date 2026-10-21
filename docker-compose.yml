@@ -1,15 +1,23 @@
+# Split out from the service anchor because each instance adds its own INSTANCE_ID: a
+# per-instance `environment:` key would replace the anchor's whole map rather than merge
+# into it, silently dropping the Postgres/Redis settings.
+x-login-env: &login-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_DB: distributed_session
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+
+x-cart-env: &cart-env
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+
 x-login-service: &login-service
   build:
     context: .
     dockerfile: login-service/Dockerfile
-  environment:
-    POSTGRES_HOST: postgres
-    POSTGRES_PORT: 5432
-    POSTGRES_DB: distributed_session
-    POSTGRES_USER: postgres
-    POSTGRES_PASSWORD: postgres
-    REDIS_HOST: redis
-    REDIS_PORT: 6379
   depends_on:
     postgres:
       condition: service_healthy
@@ -25,9 +33,6 @@ x-cart-service: &cart-service
   build:
     context: .
     dockerfile: cart-service/Dockerfile
-  environment:
-    REDIS_HOST: redis
-    REDIS_PORT: 6379
   depends_on:
     redis:
       condition: service_healthy
@@ -62,19 +67,51 @@ services:
       timeout: 5s
       retries: 10
 
+  # INSTANCE_ID is echoed back on every response as X-Instance-Id so the frontend can show
+  # which instance answered (ticket 7). Labelling only - nothing routes on it.
   login-service-1:
     <<: *login-service
+    environment:
+      <<: *login-env
+      INSTANCE_ID: login-1
   login-service-2:
     <<: *login-service
+    environment:
+      <<: *login-env
+      INSTANCE_ID: login-2
   login-service-3:
     <<: *login-service
+    environment:
+      <<: *login-env
+      INSTANCE_ID: login-3
 
   cart-service-1:
     <<: *cart-service
+    environment:
+      <<: *cart-env
+      INSTANCE_ID: cart-1
   cart-service-2:
     <<: *cart-service
+    environment:
+      <<: *cart-env
+      INSTANCE_ID: cart-2
   cart-service-3:
     <<: *cart-service
+    environment:
+      <<: *cart-env
+      INSTANCE_ID: cart-3
+
+  # Static React build, reachable only through nginx so the page and the API it calls share
+  # one origin (ADR-0005): the SESSION cookie just works and no CORS config is needed.
+  frontend:
+    build:
+      context: ./frontend
+    healthcheck:
+      # 127.0.0.1, not localhost: busybox wget tries ::1 first and nginx listens on IPv4 only.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:80/"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   # Single stable entrypoint for each service: round-robins across instances with
   # no ip_hash/sticky-session directive, so a session minted on one instance must
@@ -84,9 +121,12 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
+      - "3000:3000"
       - "8080:8080"
       - "8081:8081"
     depends_on:
+      frontend:
+        condition: service_healthy
       login-service-1:
         condition: service_healthy
       login-service-2:

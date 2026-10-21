@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.distributedsession.cartservice.cart.AddItemRequest;
 import com.distributedsession.session.ErrorResponse;
+import com.distributedsession.session.InstanceIdFilter;
 import com.distributedsession.session.SessionAttributes;
 import java.util.Base64;
 import java.util.List;
@@ -26,7 +27,8 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = "INSTANCE_ID=cart-test")
 @AutoConfigureTestRestTemplate
 @Testcontainers
 class CartServiceApplicationTests {
@@ -114,6 +116,22 @@ class CartServiceApplicationTests {
                 "/cart/add", HttpMethod.POST, new HttpEntity<>(new AddItemRequest(" "), headers), String.class);
 
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    }
+
+    @Test
+    void everyResponseIsLabelledWithTheInstanceThatAnsweredIt() {
+        // Including the 401: SessionAuthenticationFilter short-circuits the chain, so the
+        // instance header only survives if InstanceIdFilter runs ahead of it.
+        ResponseEntity<ErrorResponse> unauthorized = restTemplate.getForEntity("/cart", ErrorResponse.class);
+
+        HttpHeaders headers = cookieHeaders(preSeedSessionFor("alice"));
+        ResponseEntity<List> ok = restTemplate.exchange(
+                "/cart", HttpMethod.GET, new HttpEntity<>(headers), List.class);
+
+        assertThat(unauthorized.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        assertThat(unauthorized.getHeaders().getFirst(InstanceIdFilter.HEADER)).isEqualTo("cart-test");
+        assertThat(ok.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(ok.getHeaders().getFirst(InstanceIdFilter.HEADER)).isEqualTo("cart-test");
     }
 
     @SuppressWarnings("unchecked")
