@@ -1,3 +1,42 @@
+x-login-service: &login-service
+  build:
+    context: .
+    dockerfile: login-service/Dockerfile
+  environment:
+    POSTGRES_HOST: postgres
+    POSTGRES_PORT: 5432
+    POSTGRES_DB: distributed_session
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health"]
+    interval: 5s
+    timeout: 5s
+    retries: 10
+
+x-cart-service: &cart-service
+  build:
+    context: .
+    dockerfile: cart-service/Dockerfile
+  environment:
+    REDIS_HOST: redis
+    REDIS_PORT: 6379
+  depends_on:
+    redis:
+      condition: service_healthy
+  healthcheck:
+    test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health"]
+    interval: 5s
+    timeout: 5s
+    retries: 10
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -23,45 +62,40 @@ services:
       timeout: 5s
       retries: 10
 
-  login-service:
-    build:
-      context: .
-      dockerfile: login-service/Dockerfile
-    environment:
-      POSTGRES_HOST: postgres
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: distributed_session
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+  login-service-1:
+    <<: *login-service
+  login-service-2:
+    <<: *login-service
+  login-service-3:
+    <<: *login-service
+
+  cart-service-1:
+    <<: *cart-service
+  cart-service-2:
+    <<: *cart-service
+  cart-service-3:
+    <<: *cart-service
+
+  # Single stable entrypoint for each service: round-robins across instances with
+  # no ip_hash/sticky-session directive, so a session minted on one instance must
+  # be readable from whichever instance answers the next request (ticket 5).
+  nginx:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
       - "8080:8080"
+      - "8081:8081"
     depends_on:
-      postgres:
+      login-service-1:
         condition: service_healthy
-      redis:
+      login-service-2:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
-
-  cart-service:
-    build:
-      context: .
-      dockerfile: cart-service/Dockerfile
-    environment:
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    ports:
-      - "8081:8080"
-    depends_on:
-      redis:
+      login-service-3:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/actuator/health"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      cart-service-1:
+        condition: service_healthy
+      cart-service-2:
+        condition: service_healthy
+      cart-service-3:
+        condition: service_healthy
