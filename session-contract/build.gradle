@@ -1,0 +1,9 @@
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-autoconfigure'
+    implementation 'org.springframework.session:spring-session-data-redis'
+    implementation 'tools.jackson.core:jackson-databind'
+}
+
+tasks.named('bootJar') {
+    enabled = false
+}
