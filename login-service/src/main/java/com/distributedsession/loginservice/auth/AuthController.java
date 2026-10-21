@@ -1,5 +1,6 @@
 package com.distributedsession.loginservice.auth;
 
+import com.distributedsession.session.ErrorResponse;
 import com.distributedsession.session.SessionAttributes;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;

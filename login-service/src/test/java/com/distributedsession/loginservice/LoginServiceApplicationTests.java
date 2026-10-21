@@ -2,7 +2,7 @@ package com.distributedsession.loginservice;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.distributedsession.loginservice.auth.ErrorResponse;
+import com.distributedsession.session.ErrorResponse;
 import com.distributedsession.loginservice.auth.LoginRequest;
 import com.distributedsession.session.SessionAttributes;
 import java.util.Base64;
