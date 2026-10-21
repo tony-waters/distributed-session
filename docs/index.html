@@ -1,0 +1,444 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}</style></head><body>
+<title>Distributed Session Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:ital,wght@0,400;1,400&display=swap">
+
+<style>
+  :root {
+    --ground: #F4F6F9;
+    --panel: #FFFFFF;
+    --panel-2: #EBEFF5;
+    --ink: #141A22;
+    --muted: #5B6775;
+    --line: #D4DBE4;
+    --line-soft: #E3E8EF;
+    --accent: #0D6E72;
+    --accent-soft: #E2F0F0;
+    --signal: #A2561B;
+    --signal-soft: #F6EBE1;
+    --sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+    --serif: "IBM Plex Serif", Georgia, serif;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0D1217;
+      --panel: #161C23;
+      --panel-2: #1D252E;
+      --ink: #E7ECF2;
+      --muted: #96A3B1;
+      --line: #2B343E;
+      --line-soft: #222A33;
+      --accent: #46B6B6;
+      --accent-soft: #10292B;
+      --signal: #D59A52;
+      --signal-soft: #2B2217;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0D1217;
+    --panel: #161C23;
+    --panel-2: #1D252E;
+    --ink: #E7ECF2;
+    --muted: #96A3B1;
+    --line: #2B343E;
+    --line-soft: #222A33;
+    --accent: #46B6B6;
+    --accent-soft: #10292B;
+    --signal: #D59A52;
+    --signal-soft: #2B2217;
+  }
+
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 72px 28px 96px;
+    display: flex;
+    flex-direction: column;
+    gap: 56px;
+  }
+
+  .prose { max-width: 68ch; display: flex; flex-direction: column; gap: 18px; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  h1 {
+    font-size: clamp(34px, 5.2vw, 50px);
+    line-height: 1.08;
+    letter-spacing: -0.022em;
+    font-weight: 600;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .lede {
+    font-family: var(--serif);
+    font-size: 19px;
+    line-height: 1.58;
+    color: var(--ink);
+    margin: 0;
+  }
+
+  h2 {
+    font-size: 23px;
+    font-weight: 600;
+    letter-spacing: -0.012em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+
+  p { margin: 0; color: var(--ink); }
+  .dim { color: var(--muted); }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.875em;
+    background: var(--panel-2);
+    border: 1px solid var(--line-soft);
+    border-radius: 3px;
+    padding: 0.08em 0.32em;
+  }
+
+  figure {
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .frame {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 22px 20px;
+    overflow-x: auto;
+  }
+
+  .frame svg { display: block; width: 100%; min-width: 760px; max-width: 100%; height: auto; }
+
+  figcaption {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--muted);
+    max-width: 76ch;
+  }
+  figcaption b { color: var(--ink); font-weight: 600; }
+
+  /* diagram primitives */
+  .nd { fill: var(--panel); stroke: var(--line); stroke-width: 1.25; }
+  .grp { fill: var(--panel-2); stroke: var(--line); stroke-width: 1.25; }
+  .chip { fill: var(--panel); stroke: var(--line); stroke-width: 1; }
+  .store { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.5; }
+  .lane { fill: var(--accent-soft); stroke: var(--accent); stroke-width: 1.25; }
+
+  .nm { font-family: var(--sans); font-size: 13px; font-weight: 600; fill: var(--ink); }
+  .sub { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); }
+  .mono { font-family: var(--mono); font-size: 11px; fill: var(--ink); }
+  .tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; fill: var(--muted); }
+  .edgelbl { font-family: var(--mono); font-size: 10.5px; fill: var(--muted); }
+  .rrlbl { font-family: var(--mono); font-size: 10.5px; font-weight: 500; fill: var(--signal); }
+  .acc { fill: var(--accent); }
+
+  .edge { stroke: var(--muted); stroke-width: 1.25; fill: none; }
+  .edge-rr { stroke: var(--signal); stroke-width: 1.5; fill: none; }
+  .hair { stroke: var(--line); stroke-width: 1; fill: none; }
+  .mk { fill: var(--muted); }
+  .mk-rr { fill: var(--signal); }
+
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(248px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .cell { background: var(--panel); padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 7px; }
+  .cell h3 { margin: 0; font-size: 14.5px; font-weight: 600; letter-spacing: -0.004em; }
+  .cell p { font-size: 13.5px; line-height: 1.52; color: var(--muted); }
+  .cell .tagline { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th, td { text-align: left; padding: 11px 14px; border-bottom: 1px solid var(--line-soft); vertical-align: top; }
+  th { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--line); }
+  tbody tr:last-child td { border-bottom: none; }
+  td:first-child { font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+  td.dim { color: var(--muted); }
+
+  .note {
+    border-left: 2px solid var(--signal);
+    background: var(--signal-soft);
+    padding: 14px 18px;
+    font-size: 14px;
+    line-height: 1.55;
+    border-radius: 0 3px 3px 0;
+    max-width: 76ch;
+  }
+</style>
+
+<div class="page">
+
+  <header class="prose">
+    <p class="eyebrow">tony-waters/distributed-session</p>
+    <h1>Distributed Session Architecture</h1>
+    <p class="lede">Three instances of each service sit behind a round-robin load balancer with no sticky sessions. Nothing about a logged-in user lives in a service process — the Session and the Cart both live in Redis — so any instance can answer any request, and consecutive requests for one session deliberately land on different ones.</p>
+  </header>
+
+  <figure>
+    <svg viewBox="0 0 1000 372" role="img" aria-label="System topology: browser, curl and k6 clients reach a single nginx load balancer, which round-robins across three login-service instances and three cart-service instances; login-service verifies passwords against Postgres and writes the Session to Redis, while cart-service reads that Session from Redis and appends to its own Redis cart key.">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon class="mk" points="0,1.5 9,5 0,8.5"></polygon>
+        </marker>
+        <marker id="arrow-rr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon class="mk-rr" points="0,1.5 9,5 0,8.5"></polygon>
+        </marker>
+      </defs>
+
+      <!-- column headings -->
+      <text class="tag" x="16" y="16">CLIENTS</text>
+      <text class="tag" x="196" y="16">LOAD BALANCER</text>
+      <text class="tag" x="396" y="16">STATELESS INSTANCES</text>
+      <text class="tag" x="748" y="16">STATE</text>
+
+      <!-- clients -->
+      <rect class="nd" x="16" y="48" width="128" height="46" rx="3"></rect>
+      <text class="nm" x="30" y="70">Browser</text>
+      <text class="sub" x="30" y="85">React page · :3000</text>
+
+      <rect class="nd" x="16" y="118" width="128" height="46" rx="3"></rect>
+      <text class="nm" x="30" y="140">curl</text>
+      <text class="sub" x="30" y="155">:8080 · :8081</text>
+
+      <rect class="nd" x="16" y="188" width="128" height="46" rx="3"></rect>
+      <text class="nm" x="30" y="210">k6 script</text>
+      <text class="sub" x="30" y="225">cross-instance proof</text>
+
+      <!-- nginx -->
+      <rect class="nd" x="196" y="36" width="116" height="232" rx="3"></rect>
+      <text class="nm" x="254" y="132" text-anchor="middle">nginx</text>
+      <text class="sub" x="254" y="150" text-anchor="middle">:3000 /api/*</text>
+      <text class="sub" x="254" y="164" text-anchor="middle">:8080  :8081</text>
+      <text class="rrlbl" x="254" y="192" text-anchor="middle">round-robin</text>
+      <text class="rrlbl" x="254" y="206" text-anchor="middle">no ip_hash</text>
+
+      <!-- client edges -->
+      <line class="edge" x1="146" y1="71" x2="192" y2="71" marker-end="url(#arrow)"></line>
+      <line class="edge" x1="146" y1="141" x2="192" y2="141" marker-end="url(#arrow)"></line>
+      <line class="edge" x1="146" y1="211" x2="192" y2="211" marker-end="url(#arrow)"></line>
+
+      <!-- frontend -->
+      <rect class="nd" x="396" y="28" width="164" height="44" rx="3"></rect>
+      <text class="nm" x="410" y="48">frontend</text>
+      <text class="sub" x="410" y="63">static build · nginx :80</text>
+
+      <!-- login group -->
+      <rect class="grp" x="396" y="92" width="164" height="106" rx="3"></rect>
+      <text class="nm" x="410" y="112">login-service &#215;3</text>
+      <rect class="chip" x="410" y="122" width="136" height="22" rx="2"></rect>
+      <text class="mono" x="420" y="137">login-1</text>
+      <rect class="chip" x="410" y="149" width="136" height="22" rx="2"></rect>
+      <text class="mono" x="420" y="164">login-2</text>
+      <rect class="chip" x="410" y="176" width="136" height="22" rx="2"></rect>
+      <text class="mono" x="420" y="191">login-3</text>
+
+      <!-- cart group -->
+      <rect class="grp" x="396" y="226" width="164" height="106" rx="3"></rect>
+      <text class="nm" x="410" y="246">cart-service &#215;3</text>
+      <rect class="chip" x="410" y="256" width="136" height="22" rx="2"></rect>
+      <text class="mono" x="420" y="271">cart-1</text>
+      <rect class="chip" x="410" y="283" width="136" height="22" rx="2"></rect>
+      <text class="mono" x="420" y="298">cart-2</text>
+      <rect class="chip" x="410" y="310" width="136" height="22" rx="2"></rect>
+      <text class="mono" x="420" y="325">cart-3</text>
+
+      <!-- nginx -> frontend -->
+      <polyline class="edge" points="314,60 356,60 356,50 392,50" marker-end="url(#arrow)"></polyline>
+      <text class="edgelbl" x="318" y="48">GET /</text>
+
+      <!-- nginx -> login (round robin) -->
+      <line class="edge-rr" x1="314" y1="130" x2="392" y2="130" marker-end="url(#arrow-rr)"></line>
+      <text class="edgelbl" x="318" y="122">/login /session /logout</text>
+
+      <!-- nginx -> cart (round robin) -->
+      <polyline class="edge-rr" points="314,232 356,232 356,268 392,268" marker-end="url(#arrow-rr)"></polyline>
+      <text class="edgelbl" x="318" y="224">/cart /cart/add</text>
+
+      <!-- stores -->
+      <rect class="store" x="748" y="92" width="224" height="58" rx="3"></rect>
+      <text class="nm acc" x="764" y="115">Postgres</text>
+      <text class="sub" x="764" y="131">users · bcrypt hashes · Flyway seed</text>
+
+      <rect class="store" x="748" y="186" width="224" height="146" rx="3"></rect>
+      <text class="nm acc" x="764" y="209">Redis</text>
+      <rect class="chip" x="764" y="222" width="192" height="42" rx="2"></rect>
+      <text class="mono" x="774" y="238">distributed-session:</text>
+      <text class="mono" x="774" y="254">  sessions:&lt;id&gt;  {username}</text>
+      <rect class="chip" x="764" y="272" width="192" height="42" rx="2"></rect>
+      <text class="mono" x="774" y="288">cart-service:cart:&lt;id&gt;</text>
+      <text class="mono" x="774" y="304">  LIST, TTL = session</text>
+
+      <!-- login -> postgres -->
+      <line class="edge" x1="562" y1="121" x2="744" y2="121" marker-end="url(#arrow)"></line>
+      <text class="edgelbl" x="600" y="113">verify password</text>
+
+      <!-- login -> redis -->
+      <polyline class="edge" points="562,175 652,175 652,230 744,230" marker-end="url(#arrow)"></polyline>
+      <text class="edgelbl" x="566" y="167">mints Session</text>
+
+      <!-- cart -> redis -->
+      <line class="edge" x1="562" y1="279" x2="744" y2="279" marker-end="url(#arrow)"></line>
+      <text class="edgelbl" x="572" y="271">reads Session &#183; RPUSH item</text>
+
+      <!-- instance id header, display only -->
+      <polyline class="hair" points="396,344 972,344"></polyline>
+      <text class="sub" x="396" y="362">every response carries X-Instance-Id &#8212; display only; nothing routes on it and no state is keyed by it</text>
+    </svg>
+    <figcaption><b>Figure 1 — Topology.</b> Everything a request needs after authentication sits in the right-hand column. The two orange edges are the ones the demo turns on: nginx declares no <code>ip_hash</code>, so the instance that answers is whichever comes up next in rotation. cart-service holds no data of its own — it trusts the shared Session only to identify the caller, then appends to a Redis list under its own key.</figcaption>
+  </figure>
+
+  <figure>
+    <svg viewBox="0 0 1000 290" role="img" aria-label="Four consecutive requests for one session are answered by four different instances: login on login-2 mints the session, two cart adds land on cart-1 and cart-3, and a final read on cart-2 returns both items, because every instance reads the same two Redis keys.">
+      <defs>
+        <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <polygon class="mk" points="0,1.5 9,5 0,8.5"></polygon>
+        </marker>
+      </defs>
+
+      <text class="tag" x="16" y="16">ONE SESSION, FOUR CONSECUTIVE REQUESTS</text>
+
+      <!-- request boxes -->
+      <rect class="nd" x="16" y="34" width="226" height="48" rx="3"></rect>
+      <text class="mono" x="30" y="54">POST /login</text>
+      <text class="sub" x="30" y="70">alice / alice-password123</text>
+
+      <rect class="nd" x="268" y="34" width="226" height="48" rx="3"></rect>
+      <text class="mono" x="282" y="54">POST /cart/add</text>
+      <text class="sub" x="282" y="70">{"item": "hat"}</text>
+
+      <rect class="nd" x="520" y="34" width="226" height="48" rx="3"></rect>
+      <text class="mono" x="534" y="54">POST /cart/add</text>
+      <text class="sub" x="534" y="70">{"item": "scarf"}</text>
+
+      <rect class="nd" x="772" y="34" width="212" height="48" rx="3"></rect>
+      <text class="mono" x="786" y="54">GET /cart</text>
+      <text class="sub" x="786" y="70">same SESSION cookie</text>
+
+      <!-- answered by -->
+      <rect class="grp" x="16" y="104" width="226" height="30" rx="2"></rect>
+      <text class="mono" x="129" y="123" text-anchor="middle">answered by login-2</text>
+      <rect class="grp" x="268" y="104" width="226" height="30" rx="2"></rect>
+      <text class="mono" x="381" y="123" text-anchor="middle">answered by cart-1</text>
+      <rect class="grp" x="520" y="104" width="226" height="30" rx="2"></rect>
+      <text class="mono" x="633" y="123" text-anchor="middle">answered by cart-3</text>
+      <rect class="grp" x="772" y="104" width="212" height="30" rx="2"></rect>
+      <text class="mono" x="878" y="123" text-anchor="middle">answered by cart-2</text>
+
+      <line class="edge" x1="129" y1="84" x2="129" y2="100" marker-end="url(#arrow2)"></line>
+      <line class="edge" x1="381" y1="84" x2="381" y2="100" marker-end="url(#arrow2)"></line>
+      <line class="edge" x1="633" y1="84" x2="633" y2="100" marker-end="url(#arrow2)"></line>
+      <line class="edge" x1="878" y1="84" x2="878" y2="100" marker-end="url(#arrow2)"></line>
+
+      <line class="edge" x1="129" y1="136" x2="129" y2="176" marker-end="url(#arrow2)"></line>
+      <line class="edge" x1="381" y1="136" x2="381" y2="176" marker-end="url(#arrow2)"></line>
+      <line class="edge" x1="633" y1="136" x2="633" y2="176" marker-end="url(#arrow2)"></line>
+      <line class="edge" x1="878" y1="136" x2="878" y2="176" marker-end="url(#arrow2)"></line>
+      <text class="edgelbl" x="137" y="160">writes</text>
+      <text class="edgelbl" x="389" y="160">RPUSH</text>
+      <text class="edgelbl" x="641" y="160">RPUSH</text>
+      <text class="edgelbl" x="886" y="160">LRANGE</text>
+
+      <!-- redis lane -->
+      <rect class="lane" x="16" y="180" width="968" height="94" rx="3"></rect>
+      <text class="nm acc" x="30" y="200">Redis &#8212; keyed by session id 7f3a&#8230;, never by instance</text>
+
+      <rect class="chip" x="30" y="212" width="198" height="48" rx="2"></rect>
+      <text class="mono" x="40" y="230">sessions:7f3a&#8230;</text>
+      <text class="sub" x="40" y="246">{username: "alice"}</text>
+
+      <rect class="chip" x="282" y="212" width="198" height="48" rx="2"></rect>
+      <text class="mono" x="292" y="230">cart:7f3a&#8230;</text>
+      <text class="sub" x="292" y="246">["hat"]</text>
+
+      <rect class="chip" x="534" y="212" width="198" height="48" rx="2"></rect>
+      <text class="mono" x="544" y="230">cart:7f3a&#8230;</text>
+      <text class="sub" x="544" y="246">["hat", "scarf"]</text>
+
+      <rect class="chip" x="786" y="212" width="184" height="48" rx="2"></rect>
+      <text class="mono" x="796" y="230">&#8594; 200 OK</text>
+      <text class="sub" x="796" y="246">["hat", "scarf"]</text>
+    </svg>
+    <figcaption><b>Figure 2 — The proof.</b> Four requests, four different instances, one intact Session and Cart. Nothing is replicated between instances and no request is routed by identity: the session id in the <code>SESSION</code> cookie is the only thing that carries state forward, and both keys it addresses live in Redis.</figcaption>
+  </figure>
+
+  <section class="prose" style="max-width:none">
+    <h2>What makes the instances interchangeable</h2>
+    <div class="cols">
+      <div class="cell">
+        <p class="tagline">session-contract</p>
+        <h3>One serializer, two services</h3>
+        <p>Spring Session's default JDK serialization can't be read across two services' classpaths, so a shared auto-configuration module pins both to a JSON serializer and one Redis namespace. It also owns <code>SessionAttributes.USERNAME</code>, the single key login-service writes and cart-service reads.</p>
+      </div>
+      <div class="cell">
+        <p class="tagline">cart-service</p>
+        <h3>Atomic appends, not read-modify-write</h3>
+        <p>The Cart is its own Redis list, not a Session attribute. A single <code>RPUSH</code> per add means two concurrent adds on two different instances can't clobber each other the way rewriting a whole session attribute would. The key's TTL is reset to the session's remaining lifetime on every add.</p>
+      </div>
+      <div class="cell">
+        <p class="tagline">login-service</p>
+        <h3>Login always mints a fresh Session</h3>
+        <p>Any session presented on <code>/login</code> is invalidated before a new one is created — the glossary rule that Login never reuses a Session, which also closes session fixation: a pre-set cookie can never become an authenticated one.</p>
+      </div>
+      <div class="cell">
+        <p class="tagline">cart-service</p>
+        <h3>Authentication ahead of every endpoint</h3>
+        <p>A servlet filter scoped to <code>/cart/*</code> rejects any request whose session lacks the username, so a newly added endpoint can't skip the check. Missing, expired and unknown sessions all get the same generic 401 — no detail to probe. The scope matters: unscoped it would also reject the unauthenticated health probe.</p>
+      </div>
+      <div class="cell">
+        <p class="tagline">frontend</p>
+        <h3>Same origin, so no CORS</h3>
+        <p>nginx serves the React build and proxies <code>/api/*</code> to the services on port 3000, so the <code>SESSION</code> cookie is first-party and cross-site POSTs stay blocked by <code>SameSite=Lax</code>. The bare 8080/8081 entrypoints are untouched, so curl and k6 still drive the services directly.</p>
+      </div>
+      <div class="cell">
+        <p class="tagline">observability</p>
+        <h3>X-Instance-Id is a label, not a route</h3>
+        <p>A highest-precedence filter stamps every response — 401s and health probes included — with the instance that produced it, before the chain runs so a short-circuiting filter can't commit the response without it. The frontend's request log reads only this header.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="prose" style="max-width:none">
+    <h2>Where state is allowed to live</h2>
+    <div class="frame" style="padding:4px 0">
+      <table>
+        <thead>
+          <tr><th>Store</th><th>Holds</th><th>Lifetime</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Postgres</td><td>Users — username and bcrypt hash, seeded by Flyway; no registration endpoint</td><td class="dim">Durable; source of truth for identity</td></tr>
+          <tr><td>Redis <span class="dim">sessions:&lt;id&gt;</span></td><td>The Session — a server-generated id and the logged-in username</td><td class="dim">Expires on inactivity, independently of the User</td></tr>
+          <tr><td>Redis <span class="dim">cart:&lt;id&gt;</span></td><td>The Cart — a list of item strings, keyed by session id</td><td class="dim">TTL tracks the Session; no catalog, prices or inventory</td></tr>
+          <tr><td>Instance memory</td><td>Nothing that outlives a request</td><td class="dim">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><b>Known limitation.</b> nginx resolves the backend hostnames once at startup, so recreating a service container mid-run needs an nginx reload to pick up its new address. The demo only exercises the initial bring-up.</p>
+  </section>
+
+</div>
+
+</body></html>

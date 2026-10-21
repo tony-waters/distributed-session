@@ -32,9 +32,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
-                // CSRF protects cookie-based sessions from cross-origin form submission by a browser
-                // frontend. This API has no browser frontend, only curl/k6 clients, so that attack
-                // vector doesn't apply here (ADR-0004).
+                // CSRF protects cookie-based sessions from cross-site form submission by a browser
+                // frontend. There is one now (the React demo page), so the premise ADR-0004
+                // originally disabled this on no longer holds; it stays disabled on the narrower
+                // grounds in ADR-0005: the page is served same-origin, and the SESSION cookie is
+                // SameSite=Lax, so a cross-site POST arrives without it and gets the ordinary 401.
+                // That is a demo-scoped argument - a production service with this auth design
+                // should turn CSRF protection back on.
                 .csrf(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
