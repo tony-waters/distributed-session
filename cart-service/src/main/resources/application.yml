@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: cart-service
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  session:
+    store-type: redis
+    redis:
+      namespace: distributed-session
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health

@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: login-service
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/${POSTGRES_DB:distributed_session}
+    username: ${POSTGRES_USER:postgres}
+    password: ${POSTGRES_PASSWORD:postgres}
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  session:
+    store-type: redis
+    redis:
+      namespace: distributed-session
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
