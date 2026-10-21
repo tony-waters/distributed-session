@@ -17,3 +17,7 @@ The act of authenticating a User's credentials and minting a brand-new Session. 
 
 **Cart**:
 A list of item names scoped to a Session's ID, stored in its own Redis key (not a Session attribute) so items can be appended atomically. No product catalog, prices, or inventory — an item is just a string.
+
+**Instance**:
+One running process of a service. Instances of the same service are interchangeable: any of them can serve any request for any Session, because they hold no state of their own. Each reports its identity in the `X-Instance-Id` response header purely so the demo can show which one answered — never to route to it or to key state by it.
+_Avoid_: Node, Server (both read as a machine rather than a replaceable process)

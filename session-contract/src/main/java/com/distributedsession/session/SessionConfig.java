@@ -1,7 +1,10 @@
 package com.distributedsession.session;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.core.Ordered;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializer;
 import org.springframework.session.data.redis.config.annotation.web.http.EnableRedisHttpSession;
@@ -21,5 +24,19 @@ public class SessionConfig {
     @Bean
     public RedisSerializer<Object> springSessionDefaultRedisSerializer() {
         return GenericJacksonJsonRedisSerializer.builder().build();
+    }
+
+    // Shared by both services so the frontend reads one header name everywhere. Highest
+    // precedence and an unscoped "/*" so it also labels /actuator/health and the 401s
+    // cart-service's SessionAuthenticationFilter writes - unlike that filter, adding a
+    // response header can't reject anything, so the health probe stays unaffected.
+    @Bean
+    public FilterRegistrationBean<InstanceIdFilter> instanceIdFilter(
+            @Value("${INSTANCE_ID:unknown}") String instanceId) {
+        FilterRegistrationBean<InstanceIdFilter> registration =
+                new FilterRegistrationBean<>(new InstanceIdFilter(instanceId));
+        registration.addUrlPatterns("/*");
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return registration;
     }
 }
