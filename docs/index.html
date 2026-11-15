@@ -193,7 +193,7 @@
 <div class="page">
 
   <header class="prose">
-    <p class="eyebrow">tony-waters/distributed-session</p>
+    <p class="eyebrow">Architecture</p>
     <h1>Distributed Session Architecture</h1>
     <p class="lede">Three instances of each service sit behind a round-robin load balancer with no sticky sessions. Nothing about a logged-in user lives in a service process — the Session and the Cart both live in Redis — so any instance can answer any request, and consecutive requests for one session deliberately land on different ones.</p>
   </header>
